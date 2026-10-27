@@ -1,0 +1,13 @@
+actual,predicted,confidence,crop,image,note
+Early blight,Early blight,88.4%,Solanum lycopersicum,tomato-early-01.jpg,target spot with yellow halo
+Early blight,Early blight,81.2%,Solanum lycopersicum,tomato-early-02.jpg,
+Early blight,Leaf spot,63.5%,Solanum lycopersicum,tomato-early-03.jpg,confused with Septoria
+Late blight,Late blight,91.7%,Solanum lycopersicum,tomato-late-01.jpg,water-soaked margin
+Late blight,Late blight,86.1%,Solanum lycopersicum,tomato-late-02.jpg,
+Late blight,Early blight,58.9%,Solanum lycopersicum,tomato-late-03.jpg,heavy sporulation
+Leaf spot,Leaf spot,79.3%,Solanum lycopersicum,tomato-spot-01.jpg,
+Leaf spot,Leaf spot,74.8%,Solanum lycopersicum,tomato-spot-02.jpg,
+Leaf spot,Healthy,52.1%,Solanum lycopersicum,tomato-spot-03.jpg,early symptoms
+Healthy,Healthy,95.2%,Solanum lycopersicum,tomato-healthy-01.jpg,
+Healthy,Healthy,93.8%,Solanum lycopersicum,tomato-healthy-02.jpg,
+Healthy,Leaf spot,61.4%,Solanum lycopersicum,tomato-healthy-03.jpg,soil splash on leaf
