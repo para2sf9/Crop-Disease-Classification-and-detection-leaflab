@@ -3,7 +3,7 @@
  *
  * These are hand-written placeholders so charts, tables and the confusion
  * matrix can be inspected before real labelled data exists. They are NOT
- * Kindwise benchmark results and must never be reported as model performance.
+ * Plant.id benchmark results and must never be reported as model performance.
  */
 
 const PATTERN = {

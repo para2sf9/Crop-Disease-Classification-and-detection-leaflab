@@ -84,7 +84,7 @@ export default function EvaluationPanel({ metrics, usingFixture, recordCount, on
         {usingFixture ? (
           <>
             Showing <strong>{metrics.total} deterministic fixture rows</strong> so the report layout can be
-            reviewed before data exists. The fixture is illustrative — it is <strong>not</strong> a Kindwise
+            reviewed before data exists. The fixture is illustrative — it is <strong>not</strong> a Plant.id
             benchmark. Record verified API cases or import a CSV to replace it.
           </>
         ) : (

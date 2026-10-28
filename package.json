@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Crop leaf condition identification and transparent evaluation, powered by the Kindwise Crop.health API.",
+  "description": "Crop leaf condition identification and transparent evaluation, powered by the Plant.id API.",
   "scripts": {
     "dev": "concurrently -k -n server,client -c green,cyan \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "node --watch --watch-path=server server/index.js",

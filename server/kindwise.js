@@ -4,15 +4,12 @@ import dns from "node:dns";
 dns.setDefaultResultOrder("ipv4first");
 
 /**
- * Thin, dependency-free client for the Kindwise Crop.health identification API.
- * Docs: https://crop.kindwise.com/docs
+ * Thin, dependency-free client for the Plant.id identification API.
+ * Docs: https://plant.id/
  *
  * This module runs ONLY on the server. The API key is read from the
  * environment so it never reaches the browser bundle.
  */
-
-export const KINDWISE_BASE_URL =
-  process.env.KINDWISE_BASE_URL || "https://crop.kindwise.com/api/v1";
 
 export const PLANT_ID_BASE_URL =
   process.env.PLANT_ID_BASE_URL || "https://plant.id/api/v3";
@@ -22,12 +19,6 @@ export const IDENTIFICATION_PATH = "/identification";
 export function providerConfiguration() {
   return [
     {
-      id: "crop-health",
-      name: "Crop.health",
-      baseUrl: KINDWISE_BASE_URL,
-      hasApiKey: Boolean((process.env.KINDWISE_API_KEY || "").trim()),
-    },
-    {
       id: "plant-id",
       name: "Plant.id",
       baseUrl: PLANT_ID_BASE_URL,
@@ -36,7 +27,7 @@ export function providerConfiguration() {
   ];
 }
 
-/** Fields we ask Kindwise to attach to each suggestion. */
+/** Fields requested from Plant.id for each suggestion. */
 export const DEFAULT_DETAILS = [
   "description",
   "treatment",
@@ -50,10 +41,10 @@ export const DEFAULT_DETAILS = [
   "image",
 ];
 
-export class KindwiseError extends Error {
+export class PlantIdError extends Error {
   constructor(message, { status = 502, code = "upstream_error", detail } = {}) {
     super(message);
-    this.name = "KindwiseError";
+    this.name = "PlantIdError";
     this.status = status;
     this.code = code;
     this.detail = detail;
@@ -75,21 +66,19 @@ export function sanitizePayload(body = {}) {
     .slice(0, maxImages);
 
   if (!images.length) {
-    throw new KindwiseError("At least one Base64-encoded image is required.", {
+    throw new PlantIdError("At least one Base64-encoded image is required.", {
       status: 400,
       code: "no_images",
     });
   }
   if (images.some((image) => image.length < 100)) {
-    throw new KindwiseError("One of the images looks truncated or is not Base64 data.", {
+    throw new PlantIdError("One of the images looks truncated or is not Base64 data.", {
       status: 400,
       code: "bad_image",
     });
   }
 
-  // Kindwise Crop.health rejects "similar_images: false" with HTTP 400:
-  // "Unknown modifier: similar_images=false. Available modifiers: [similar_images=true]".
-  // Therefore, only include similar_images when explicitly true.
+  // Plant.id accepts similar_images only when enabled.
   const payload = { images };
   if (body.similar_images) {
     payload.similar_images = true;
@@ -133,7 +122,7 @@ function describeUpstream(status, body, providerName) {
     503: `${providerName} is temporarily unavailable. Retry with backoff.`,
   };
   return {
-    message: map[status] || `Kindwise request failed: ${upstreamMessage}`,
+    message: map[status] || `Plant.id request failed: ${upstreamMessage}`,
     detail: upstreamMessage,
   };
 }
@@ -164,7 +153,7 @@ async function callProvider(provider, path, { method = "GET", body, searchParams
       body: jsonString,
     });
   } catch (cause) {
-    throw new KindwiseError(
+    throw new PlantIdError(
       `Could not reach ${provider.name} (${cause?.message || "network error"}). Check outbound network access.`,
       { status: 502, code: "network_error", detail: cause?.message }
     );
@@ -174,7 +163,7 @@ async function callProvider(provider, path, { method = "GET", body, searchParams
   try {
     text = await response.text();
   } catch (cause) {
-    throw new KindwiseError(
+    throw new PlantIdError(
       `Could not read the ${provider.name} response (${cause?.message || "network error"}).`,
       { status: 502, code: "network_error", detail: cause?.message }
     );
@@ -190,7 +179,7 @@ async function callProvider(provider, path, { method = "GET", body, searchParams
 
   if (!response.ok) {
     const { message, detail } = describeUpstream(response.status, parsed, provider.name);
-    throw new KindwiseError(message, {
+    throw new PlantIdError(message, {
       status: response.status,
       code: `upstream_${response.status}`,
       detail: `${provider.name}: ${detail}`,
@@ -199,81 +188,16 @@ async function callProvider(provider, path, { method = "GET", body, searchParams
   return parsed;
 }
 
-function providerFromEnv(id) {
-  const configuration = providerConfiguration().find((provider) => provider.id === id);
-  const key = id === "crop-health"
-    ? (process.env.KINDWISE_API_KEY || "").trim()
-    : (process.env.PLANT_ID_API_KEY || "").trim();
-  return configuration && key ? { ...configuration, apiKey: key } : null;
+function plantIdProvider() {
+  const [configuration] = providerConfiguration();
+  const apiKey = (process.env.PLANT_ID_API_KEY || "").trim();
+  return apiKey ? { ...configuration, apiKey } : null;
 }
 
-function canFailOver(error) {
-  return (
-    error.code === "network_error" ||
-    error.code === "missing_api_key" ||
-    error.status === 400 ||
-    error.status === 401 ||
-    error.status === 403 ||
-    error.status === 404 ||
-    error.status === 408 ||
-    error.status === 429 ||
-    error.status >= 500
-  );
-}
-
-async function identifyWithFailover(payload, searchParams) {
-  const primary = providerFromEnv("crop-health");
-  const fallback = providerFromEnv("plant-id");
-
-  if (!primary && !fallback) {
-    throw new KindwiseError(
-      "No provider API keys are configured. Set KINDWISE_API_KEY or PLANT_ID_API_KEY in .env.",
-      { status: 500, code: "missing_api_key" }
-    );
-  }
-
-  if (!primary) {
-    const result = await callProvider(fallback, IDENTIFICATION_PATH, {
-      method: "POST",
-      body: { ...payload, health: "all" },
-      searchParams,
-    });
-    return { ...result, provider: fallback.id, providerName: fallback.name };
-  }
-
-  try {
-    const result = await callProvider(primary, IDENTIFICATION_PATH, {
-      method: "POST",
-      body: payload,
-      searchParams,
-    });
-    return { ...result, provider: primary.id, providerName: primary.name };
-  } catch (primaryError) {
-    if (!fallback || !canFailOver(primaryError)) throw primaryError;
-    try {
-      const result = await callProvider(fallback, IDENTIFICATION_PATH, {
-        method: "POST",
-        body: { ...payload, health: "all" },
-        searchParams,
-      });
-      return { ...result, provider: fallback.id, providerName: fallback.name };
-    } catch (fallbackError) {
-      throw new KindwiseError(
-        `Both providers failed. Crop.health: ${primaryError.message} Plant.id: ${fallbackError.message}`,
-        {
-          status: fallbackError.status || 502,
-          code: fallbackError.code || "provider_failover_failed",
-          detail: fallbackError.detail,
-        }
-      );
-    }
-  }
-}
-
-async function callKindwise(path, options = {}) {
-  const provider = providerFromEnv("crop-health");
+async function callPlantId(path, options = {}) {
+  const provider = plantIdProvider();
   if (!provider) {
-    throw new KindwiseError("KINDWISE_API_KEY is not set.", {
+    throw new PlantIdError("PLANT_ID_API_KEY is not set.", {
       status: 500,
       code: "missing_api_key",
     });
@@ -284,32 +208,43 @@ async function callKindwise(path, options = {}) {
 /** POST /identification — returns access_token + crop/disease suggestions. */
 export function identify(body, { details, language } = {}) {
   const payload = sanitizePayload(body);
-  return identifyWithFailover(payload, {
-    details: detailsQuery(details),
-    language: language || body.language || "en",
-  });
+  const provider = plantIdProvider();
+  if (!provider) {
+    throw new PlantIdError("PLANT_ID_API_KEY is not set.", {
+      status: 500,
+      code: "missing_api_key",
+    });
+  }
+  return callProvider(provider, IDENTIFICATION_PATH, {
+    method: "POST",
+    body: { ...payload, health: "all" },
+    searchParams: {
+      details: detailsQuery(details),
+      language: language || body.language || "en",
+    },
+  }).then((result) => ({ ...result, provider: provider.id, providerName: provider.name }));
 }
 
 /** GET /identification/{access_token} */
 export function getIdentification(accessToken, { details, language } = {}) {
   if (!accessToken) {
-    throw new KindwiseError("access_token is required.", { status: 400, code: "missing_token" });
+    throw new PlantIdError("access_token is required.", { status: 400, code: "missing_token" });
   }
-  return callKindwise(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}`, {
+  return callPlantId(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}`, {
     searchParams: { details: detailsQuery(details), language: language || "en" },
   });
 }
 
 /** DELETE /identification/{access_token} */
 export function deleteIdentification(accessToken) {
-  return callKindwise(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}`, {
+  return callPlantId(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}`, {
     method: "DELETE",
   });
 }
 
 /** POST /identification/{access_token}/feedback */
 export function sendFeedback(accessToken, { rating, comment } = {}) {
-  return callKindwise(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}/feedback`, {
+  return callPlantId(`${IDENTIFICATION_PATH}/${encodeURIComponent(accessToken)}/feedback`, {
     method: "POST",
     body: { rating: Number(rating), comment: String(comment || "") },
   });
@@ -317,5 +252,5 @@ export function sendFeedback(accessToken, { rating, comment } = {}) {
 
 /** GET /usage_info — credits used/remaining for the key. */
 export function usageInfo() {
-  return callKindwise("/usage_info");
+  return callPlantId("/usage_info");
 }

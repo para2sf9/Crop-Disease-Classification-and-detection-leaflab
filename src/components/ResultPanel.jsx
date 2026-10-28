@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { percent } from "../lib/metrics.js";
+import { MIN_DISPLAY_CONFIDENCE } from "../lib/kindwise.js";
 
 function TreatmentSection({ treatment }) {
   const [activeTab, setActiveTab] = useState("prevention");
@@ -162,9 +163,13 @@ export default function ResultPanel({
   const [copiedToken, setCopiedToken] = useState(false);
   const [activeView, setActiveView] = useState("diagnostic"); // "diagnostic" | "comparison"
 
-  const suggestions = result?.disease || [];
+  const suggestions = (result?.disease || []).filter(
+    (suggestion) => Number(suggestion.probability) >= MIN_DISPLAY_CONFIDENCE
+  );
   const topCandidate = suggestions[0];
-  const crop = result?.crop?.[0];
+  const crop = result?.crop?.find(
+    (suggestion) => Number(suggestion.probability) >= MIN_DISPLAY_CONFIDENCE
+  );
   const isSample = origin === "sample";
 
   const handleCopyToken = () => {
@@ -194,9 +199,9 @@ export default function ResultPanel({
         {result && (
           <div className="topbar-actions">
             <span className={`pill ${isSample ? "pill-demo" : "pill-live"}`}>
-              {isSample ? "Sample response" : `${result.providerName || "Crop.health"} ${result.modelVersion || "API"}`}
+              {isSample ? "Sample response" : `${result.providerName || "Plant.id"} ${result.modelVersion || "API"}`}
             </span>
-            {result.isHealthy !== undefined && (
+            {(result.isHealthy === true || topCandidate) && (
               <span className={`pill ${result.isHealthy ? "pill-live" : "pill-demo"}`}>
                 {result.isHealthy ? "🌿 Healthy" : "⚠️ Pathology Detected"}
               </span>
@@ -211,7 +216,7 @@ export default function ResultPanel({
             <div className="analyzing-state">
               <span className="spinner large" />
               <div className="analyzing-text">
-                <h3>Evaluating Specimen with Kindwise AI</h3>
+                <h3>Evaluating Specimen with Plant.id</h3>
                 <p>Running neural network analysis across 300+ crop diseases & pests...</p>
               </div>
             </div>
@@ -236,7 +241,7 @@ export default function ResultPanel({
             <div className="crop-banner">
               <div className="crop-icon-badge">🌱</div>
               <div className="crop-info">
-                <span className="sub">IDENTIFIED CROP HOST</span>
+                <span className="sub">IDENTIFIED CROP HOST · ≥70% CONFIDENCE</span>
                 <div className="crop-names">
                   <strong>{crop.name}</strong>
                   {crop.scientific_name && <em>{crop.scientific_name}</em>}
@@ -259,7 +264,7 @@ export default function ResultPanel({
               <div className="verdict-top">
                 <div className="verdict-title-group">
                   <div className="verdict-eyebrow">
-                    <span className="chip primary">PRIMARY DIAGNOSIS</span>
+                    <span className="chip primary">PRIMARY DIAGNOSIS · ≥70% CONFIDENCE</span>
                     {topCandidate.severity && (
                       <span className={`severity-chip severity-${topCandidate.severity.toLowerCase()}`}>
                         Severity: {topCandidate.severity}
@@ -337,7 +342,7 @@ export default function ResultPanel({
                     )}
                     {topCandidate.referenceImage ? (
                       <div className="compare-frame">
-                        <div className="frame-tag reference">Kindwise Reference Library</div>
+                        <div className="frame-tag reference">Plant.id Reference Library</div>
                         <img
                           src={topCandidate.referenceImage}
                           alt={`Reference for ${topCandidate.name}`}
@@ -386,7 +391,7 @@ export default function ResultPanel({
             </div>
           ) : (
             <div className="note-box warn">
-              No disease suggestions returned. The plant may be healthy or the photo may need better lighting.
+              No diagnosis met the 70% confidence threshold. Try a clearer, well-lit leaf photo.
             </div>
           )}
 
@@ -411,8 +416,8 @@ export default function ResultPanel({
           {suggestions.length > 1 && (
             <div className="ranked-candidates-section">
               <div className="section-label-row">
-                <span className="sub">DIFFERENTIAL DIAGNOSES ({suggestions.length} Candidates)</span>
-                <span className="note">Ranked by model likelihood</span>
+                <span className="sub">DIFFERENTIAL DIAGNOSES ({suggestions.length - 1} Candidates ≥70%)</span>
+                <span className="note">Only diagnoses at or above 70% confidence are shown</span>
               </div>
               <div className="candidate-list">
                 {suggestions.slice(1, 6).map((suggestion, index) => (
@@ -426,103 +431,11 @@ export default function ResultPanel({
             </div>
           )}
 
-          {/* Verified Labeling Record Section */}
-          {suggestions.length > 0 && (
-            <div className="record-panel">
-              <div className="record-header">
-                <strong>Record Ground-Truth Verification (CO4 Deliverable)</strong>
-                <p>
-                  To compute honest accuracy and precision-recall metrics, record the true verified
-                  pathology for this specimen.
-                </p>
-              </div>
+          
 
-              <div className="quick-chip-row">
-                <span className="chip-prompt">Quick pick:</span>
-                {QUICK_LABELS.map((lbl) => (
-                  <button
-                    key={lbl}
-                    type="button"
-                    className={`label-chip-btn ${knownLabel === lbl ? "selected" : ""}`}
-                    onClick={() => onKnownLabel(lbl)}
-                  >
-                    {lbl}
-                  </button>
-                ))}
-              </div>
+          
 
-              <div className="record-input-row">
-                <div className="field flex-1">
-                  <label htmlFor="known-label-input">Ground Truth Label</label>
-                  <input
-                    id="known-label-input"
-                    type="text"
-                    list="common-conditions-list"
-                    placeholder="e.g. Late blight or Healthy"
-                    value={knownLabel}
-                    onChange={(event) => onKnownLabel(event.target.value)}
-                  />
-                  <datalist id="common-conditions-list">
-                    {QUICK_LABELS.map((lbl) => (
-                      <option key={lbl} value={lbl} />
-                    ))}
-                  </datalist>
-                </div>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!knownLabel.trim()}
-                  onClick={onRecord}
-                >
-                  ✓ Record to Ledger
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Metadata Footer */}
-          <div className="result-meta-footer">
-            {result.accessToken && (
-              <div className="meta-pill">
-                <span>Access Token:</span>
-                <code>{result.accessToken}</code>
-                <button
-                  type="button"
-                  className="copy-mini-btn"
-                  onClick={handleCopyToken}
-                  title="Copy token"
-                >
-                  {copiedToken ? "Copied!" : "Copy"}
-                </button>
-              </div>
-            )}
-            {image && (
-              <div className="meta-pill">
-                <span>Image:</span>
-                <span>{image.name} ({image.width} × {image.height} px)</span>
-              </div>
-            )}
-            <div className="meta-pill">
-              <span>Provider:</span>
-              <span>{result.providerName || "Crop.health"}</span>
-            </div>
-          </div>
-
-          {/* Raw JSON toggle */}
-          <div className="raw-toggle">
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => setShowRaw((prev) => !prev)}
-            >
-              {showRaw ? "▲ Hide raw API response" : "▼ Inspect raw Kindwise API response"}
-            </button>
-            {showRaw && (
-              <pre className="raw-json">
-                <code>{JSON.stringify(result.raw, null, 2)}</code>
-              </pre>
-            )}
-          </div>
+          
         </>
       )}
     </article>

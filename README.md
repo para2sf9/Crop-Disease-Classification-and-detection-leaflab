@@ -1,9 +1,8 @@
 # LeafLab — crop leaf condition identification
 
 A React + Express prototype that identifies crop leaf conditions with
-[Kindwise Crop.health](https://crop.kindwise.com/docs), automatically switching
-to [Plant.id](https://plant.id/) if the primary provider is unavailable, and reports
-class-aware evaluation metrics computed from labeled images.
+[Plant.id](https://plant.id/) and reports class-aware evaluation metrics
+computed from labeled images.
 
 Built for a course deliverable mapped to **CO4** (perform and evaluate image
 classification) and **CO6** (integrate an AI capability into an application).
@@ -15,7 +14,8 @@ Confirm the official outcome wording with your instructor before you submit.
 
 1. **Identify** — pick a leaf photo, downscale it in the browser, send it through a
    local proxy to `POST /api/v1/identification`, and read crop + disease candidates
-   with probabilities and condition details.
+   with probabilities and condition details. Only candidates at or above 70%
+   confidence are shown.
 2. **Evaluate** — record a verified label for each image (or import a CSV) and get
    top-1 accuracy, macro precision / recall / F1, a confusion matrix, per-class
    scores, and the list of misclassifications.
@@ -23,8 +23,8 @@ Confirm the official outcome wording with your instructor before you submit.
    appendix.
 4. **Build notes** — endpoint contract, proxy shape, credits, and limitations.
 
-The API keys live in the server process only. The browser talks to your own
-server; it never sees either key.
+The Plant.id API key lives in the server process only. The browser talks to
+your own server; it never sees the key.
 
 ---
 
@@ -34,9 +34,9 @@ server; it never sees either key.
 # 1. install
 npm install
 
-# 2. configure provider keys in .env
+# 2. configure the Plant.id key in .env
 cp .env.example .env
-#    set KINDWISE_API_KEY and PLANT_ID_API_KEY
+#    set PLANT_ID_API_KEY
 
 # 3. run the proxy and the Vite dev server together
 npm run dev
@@ -44,10 +44,8 @@ npm run dev
 #    → proxy: http://localhost:8787
 ```
 
-Configure separate Crop.health and Plant.id keys. Each key is only sent to its
-matching provider and is read by Express; neither key enters the browser bundle.
-Identification tries Crop.health first, then switches to Plant.id for network,
-authorization, not-found, timeout, rate-limit, or upstream server failures.
+Express sends identification, lifecycle, and usage requests only to Plant.id.
+The key is read by Express and never enters the browser bundle.
 
 ### Production build
 
@@ -67,7 +65,7 @@ leaflab/
 ├── .env.example
 ├── server/
 │   ├── index.js                 Express routes, CORS, body limits
-│   └── kindwise.js              Provider clients, failover, validation, error mapping
+│   └── kindwise.js              Plant.id client, validation, error mapping
 ├── src/
 │   ├── main.jsx
 │   ├── App.jsx                  tabs, session state, ledger
@@ -96,13 +94,12 @@ leaflab/
 
 | Item | Value |
 | --- | --- |
-| Primary endpoint | `POST https://crop.kindwise.com/api/v1/identification` |
-| Fallback endpoint | `POST https://plant.id/api/v3/identification` |
-| Auth | Provider-specific `Api-Key` header; server-side only |
-| Body (JSON) | `{ "images": ["<base64>"], "similar_images": false }` |
+| Endpoint | `POST https://plant.id/api/v3/identification` |
+| Auth | `PLANT_ID_API_KEY` in the server-side `Api-Key` header |
+| Body (JSON) | `{ "images": ["<base64>"], "health": "all" }` |
 | Optional fields | `latitude`, `longitude`, `datetime`, `custom_id`, `language` |
 | Query params | `details`, `language` |
-| Key response path | Crop.health: `result.crop.suggestions[]`; Plant.id: `result.classification.suggestions[]`; disease: `result.disease.suggestions[]` |
+| Key response path | Crop: `result.classification.suggestions[]`; health: `result.health_assessment.diseases[]` |
 | Suggestion fields | `id`, `name`, `scientific_name`, `probability`, `similar_images`, `details` |
 | Lifecycle | `GET /identification/{token}`, `DELETE /identification/{token}`, `POST /identification/{token}/feedback`, `GET /usage_info` |
 
@@ -115,7 +112,7 @@ Other endpoints proxied locally:
 | `DELETE /api/identification/:token` | `DELETE /identification/{token}` |
 | `POST /api/identification/:token/feedback` | `POST /identification/{token}/feedback` |
 | `GET /api/usage` | `GET /usage_info` |
-| `GET /api/health` | local only — configured provider names and key-presence checks |
+| `GET /api/health` | local only — Plant.id key-presence check |
 | `POST /api/validate` | local only — payload dry run, spends no credits |
 
 ---
@@ -169,10 +166,10 @@ data — out of scope for this prototype, and any claim otherwise would be wrong
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `no api key` pill | Both provider keys are empty | Add `KINDWISE_API_KEY` and/or `PLANT_ID_API_KEY` to `.env`, restart |
+| `no api key` pill | Plant.id key is empty | Add `PLANT_ID_API_KEY` to `.env`, restart |
 | `proxy offline` pill | server not running | `npm run dev:server` |
-| 401 from proxy | both provider keys rejected | Verify each key matches its provider |
-| 429 from proxy | provider credits exhausted | Check provider account usage and plans |
+| 401 from proxy | Plant.id rejected the key | Verify the key in your Plant.id account |
+| 429 from proxy | Plant.id credits exhausted | Check Plant.id account usage and plan |
 | 413 | image too large | The browser already downscales; check `express.json` limit |
 | CORS error | origin not allowed | Add it to `ALLOWED_ORIGINS` |
 | Blank page after `npm start` | no `dist/` | Run `npm run build` first |
@@ -193,16 +190,9 @@ into a report appendix.
 
 ## References
 
-- [Kindwise](https://www.kindwise.com/)
-- [Crop.health API documentation](https://crop.kindwise.com/docs)
 - [Plant.id](https://plant.id/)
-- [Official crop.health client examples](https://github.com/flowerchecker/crop-health-examples)
-- [Kindwise handbook](https://www.kindwise.com/handbook)
+- [Plant.id API documentation](https://plant.id/)
 
-The service is documented as beta; verify response fields against the current
-docs before relying on any detail key in production.
-
-The health endpoint reports provider names and whether keys are configured, but
-never returns key values. Plant.id requests enable health assessment so disease
-suggestions are included. Identification supports automatic failover; lifecycle
-and usage routes remain Crop.health-specific.
+The health endpoint reports whether a Plant.id key is configured, but never
+returns its value. Identification requests enable health assessment so disease
+suggestions are included.

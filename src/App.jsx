@@ -73,7 +73,7 @@ export default function App() {
         confidence: Number(top.probability) || null,
         crop: result.crop[0]?.name || "",
         image: image?.name || "—",
-        source: resultOrigin === "sample" ? "Sample response" : result.providerName || "Crop.health",
+        source: resultOrigin === "sample" ? "Sample response" : result.providerName || "Plant.id",
         note: result.accessToken ? `access_token: ${result.accessToken}` : "",
       },
       ...previous,
@@ -107,7 +107,7 @@ export default function App() {
     const configuredProviderCount = server.providers.filter((provider) => provider.hasApiKey).length;
     return {
       cls: "pill pill-live",
-      text: configuredProviderCount > 1 ? "failover ready" : "single provider ready",
+      text: configuredProviderCount ? "Plant.id ready" : "no api key",
     };
   };
   const pill = statusPill();
@@ -124,20 +124,18 @@ export default function App() {
           </div>
           <div>
             <strong>LeafLab</strong>
-            <small>crop health · intelligent failover</small>
+            <small>crop disease identification and health monitoring</small>
           </div>
         </div>
         <div className="topbar-actions">
-          <span className={pill.cls}>{pill.text}</span>
-          <span className="pill">Crop.health ↔ Plant.id</span>
-          <span className="pill">CO4 · CO6</span>
+          <span className="pill">Crop Health</span>
         </div>
       </header>
 
       <main>
         <section className="hero">
           <div className="reveal">
-            <div className="sub">PLANT HEALTH / AUTOMATIC PROVIDER ROUTING</div>
+            <div className="sub">PLANT HEALTH / PLANT.ID</div>
             <h1>
               A closer look
               <br />
@@ -145,12 +143,11 @@ export default function App() {
             </h1>
             <p className="hero-lead">
               Upload a crop leaf photo, read the model&apos;s condition candidates, then check those
-              predictions against labels you recorded yourself. The evaluation maths runs in this
-              browser and nothing is invented where data is missing.
+              predictions against labels you recorded yourself. 
             </p>
             <div className="hero-meta">
               <span className="tag">Image → prediction → evidence</span>
-              <span className="tag">Automatic provider switching</span>
+              <span className="tag">Plant.id identification</span>
             </div>
           </div>
           <LeafSpecimen />
@@ -161,7 +158,6 @@ export default function App() {
             { label: "Evaluation cases", value: metrics.total, foot: records.length ? "your labeled data" : "illustrative fixture" },
             { label: "Top-1 accuracy", value: metrics.total ? percent(metrics.accuracy) : "—", foot: records.length ? "observed labels" : "fixture only · not measured" },
             { label: "Macro F1", value: metrics.total ? percent(metrics.macroF1) : "—", foot: "unweighted class average" },
-            { label: "Model source", value: "Auto switch", foot: "Crop.health → Plant.id" },
           ]}
         />
 
@@ -245,7 +241,7 @@ export default function App() {
 
         {tab === "integration" && (
           <div id="panel-integration" role="tabpanel" aria-labelledby="tab-integration">
-            <IntegrationPanel server={server} usage={usage} onUsage={setUsage} />
+            <IntegrationPanel server={server} />
           </div>
         )}
       </main>
@@ -263,8 +259,7 @@ export default function App() {
 
       <footer>
         <span>LEAFLAB / CROP DISEASE IMAGE CLASSIFICATION</span>
-        <span>React + Express · browser-side evaluation</span>
-        <span>CO4 + CO6 · confirm local wording</span>
+        <span>React + Express + Nodejs </span>
       </footer>
     </div>
   );

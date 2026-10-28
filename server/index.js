@@ -16,8 +16,8 @@ import {
   sendFeedback,
   usageInfo,
   sanitizePayload,
-  KindwiseError,
-  KINDWISE_BASE_URL,
+  PlantIdError,
+  PLANT_ID_BASE_URL,
   providerConfiguration,
 } from "./kindwise.js";
 
@@ -47,8 +47,8 @@ app.use(
 app.use(express.json({ limit: "24mb" }));
 
 function fail(res, error) {
-  const status = error instanceof KindwiseError ? error.status : 500;
-  const code = error instanceof KindwiseError ? error.code : "internal_error";
+  const status = error instanceof PlantIdError ? error.status : 500;
+  const code = error instanceof PlantIdError ? error.code : "internal_error";
   return res.status(status).json({
     error: error.message || "Unexpected server error.",
     code,
@@ -59,7 +59,7 @@ function fail(res, error) {
 function asyncRoute(handler) {
   return (req, res) => {
     Promise.resolve(handler(req, res)).catch((error) => {
-      if (!(error instanceof KindwiseError)) console.error("[leaflab]", error);
+      if (!(error instanceof PlantIdError)) console.error("[leaflab]", error);
       fail(res, error);
     });
   };
@@ -71,7 +71,7 @@ app.get("/api/health", (req, res) => {
   const providers = providerConfiguration();
   res.json({
     ok: true,
-    upstream: KINDWISE_BASE_URL,
+    upstream: PLANT_ID_BASE_URL,
     hasApiKey: providers.some((provider) => provider.hasApiKey),
     providers,
     time: new Date().toISOString(),
@@ -150,7 +150,7 @@ app.get("/api/specimens", (req, res) => {
       condition: "Late blight",
       scientificName: "Phytophthora infestans",
       url: "https://raw.githubusercontent.com/flowerchecker/crop-health-examples/master/images/example.jpg",
-      badge: "Real Kindwise Specimen",
+      badge: "Leaf image specimen",
     },
   ]);
 });
@@ -190,8 +190,8 @@ if (fs.existsSync(distDir)) {
 
 app.listen(PORT, () => {
   console.log(`LeafLab proxy listening on http://localhost:${PORT}`);
-  console.log(`Upstream: ${KINDWISE_BASE_URL}`);
+  console.log(`Upstream: ${PLANT_ID_BASE_URL}`);
   if (!providerConfiguration().some((provider) => provider.hasApiKey)) {
-    console.warn("No provider API key is configured — set KINDWISE_API_KEY or PLANT_ID_API_KEY in .env.");
+    console.warn("No Plant.id API key is configured — set PLANT_ID_API_KEY in .env.");
   }
 });

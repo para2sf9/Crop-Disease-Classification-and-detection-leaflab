@@ -1,7 +1,7 @@
 /**
  * Browser-side image preparation.
  *
- * Kindwise accepts images up to a few megabytes, but large phone photos waste
+ * Plant.id accepts images up to a few megabytes, but large phone photos waste
  * upload bandwidth and can hit the proxy body limit. We downscale to a long
  * edge of 1600 px and re-encode as JPEG before sending.
  */

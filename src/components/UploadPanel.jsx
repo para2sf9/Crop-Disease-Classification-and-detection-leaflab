@@ -41,7 +41,7 @@ const SAMPLE_RESPONSE = {
             image: {
               value:
                 "https://raw.githubusercontent.com/flowerchecker/crop-health-examples/master/images/example.jpg",
-              citation: "Kindwise Benchmark Specimen",
+              citation: "Plant.id specimen",
             },
             treatment: {
               prevention: [
@@ -197,7 +197,7 @@ export default function UploadPanel({
       });
       onResult(response, "live");
       onNotice(
-        `✓ Diagnosis complete! Result received from ${response.providerName || "Kindwise Crop.health"}.`
+        `✓ Diagnosis complete! Result received from ${response.providerName || "Plant.id"}.`
       );
       try {
         const accountUsage = await fetchUsage();
@@ -219,8 +219,6 @@ export default function UploadPanel({
   };
 
   const keyReady = serverState === "ready";
-  const configuredProviders = providers.filter((p) => p.hasApiKey);
-  const failoverReady = configuredProviders.length > 1;
   const blocked = busy || loadingImage || loadingSpecimen || !image || !keyReady;
 
   const remainingCredits = usage?.remaining?.total ?? usage?.remaining?.month ?? 50;
@@ -231,11 +229,6 @@ export default function UploadPanel({
         <div>
           <div className="sub">01 / SPECIMEN INPUT</div>
           <h2 style={{ marginTop: ".25rem" }}>Upload & Analyze Leaf</h2>
-        </div>
-        <div className="credit-pill-wrapper">
-          <span className="pill pill-live" title="Remaining credits for this API key">
-            💳 {remainingCredits} credits available
-          </span>
         </div>
       </div>
 
@@ -270,7 +263,6 @@ export default function UploadPanel({
             <span className="preset-icon">🔬</span>
             <div className="preset-details">
               <strong>Sample Preview</strong>
-              <small>No credits consumed</small>
             </div>
             <span className="preset-badge demo">Offline</span>
           </button>
@@ -353,27 +345,6 @@ export default function UploadPanel({
       />
 
       {/* Provider Connectivity Banner */}
-      <div className="provider-status-strip">
-        <div className="provider-indicator">
-          <span className={`status-dot ${keyReady ? "ready" : serverState === "offline" ? "error" : ""}`} />
-          <div className="provider-text">
-            <strong>
-              {keyReady
-                ? failoverReady
-                  ? "Kindwise Failover Engine Active (Crop.health + Plant.id)"
-                  : `${configuredProviders[0]?.name || "Kindwise"} Connected`
-                : serverState === "offline"
-                ? "Local Proxy Offline"
-                : "Checking Connection…"}
-            </strong>
-            <small>
-              {keyReady
-                ? "Primary: Crop.health v1 • Automatic failover to Plant.id v3. API keys secured server-side."
-                : "Connecting to http://localhost:8787 proxy..."}
-            </small>
-          </div>
-        </div>
-      </div>
 
       {/* Action Buttons */}
       <div className="button-row upload-actions" style={{ marginTop: "1.2rem" }}>
@@ -385,31 +356,13 @@ export default function UploadPanel({
         >
           {busy ? (
             <>
-              <span className="spinner" /> &nbsp;Analyzing with Kindwise AI…
+              <span className="spinner" /> &nbsp;Analyzing with Plant.id…
             </>
           ) : (
             <>
               🔍 Analyze Crop Leaf
             </>
           )}
-        </button>
-
-        <button
-          className="btn ghost tiny"
-          type="button"
-          disabled={!keyReady || busy}
-          onClick={async () => {
-            onError("");
-            try {
-              const accountUsage = await fetchUsage();
-              onUsage(accountUsage);
-              onNotice("Kindwise account usage metrics updated.");
-            } catch (err) {
-              onError(err.message);
-            }
-          }}
-        >
-          {usage ? "Refresh Usage" : "Check Credits"}
         </button>
 
         {image && (
